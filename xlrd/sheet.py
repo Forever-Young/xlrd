@@ -1,7 +1,7 @@
 # -*- coding: cp1252 -*-
 
 ##
-# <p> Portions copyright © 2005-2013 Stephen John Machin, Lingfo Pty Ltd</p>
+# <p> Portions copyright Â© 2005-2013 Stephen John Machin, Lingfo Pty Ltd</p>
 # <p>This module is part of the xlrd package, which is released under a BSD-style licence.</p>
 ##
 
@@ -374,10 +374,7 @@ class Sheet(BaseObject):
         #### Don't initialise this here, use class attribute initialisation.
         #### self.gcw = (0, ) * 256 ####
 
-        if self.biff_version >= 80:
-            self.utter_max_rows = 65536
-        else:
-            self.utter_max_rows = 16384
+        self.utter_max_rows = 65536
         self.utter_max_cols = 256
 
         self._first_full_rowx = -1
