@@ -19,9 +19,10 @@ DLF = sys.stdout # Default Log File
 
 ET = None
 ET_has_iterparse = False
+Element_has_iter = False
 
 def ensure_elementtree_imported(verbosity, logfile):
-    global ET, ET_has_iterparse
+    global ET, ET_has_iterparse, Element_has_iter
     if ET is not None:
         return
     if "IronPython" in sys.version:
@@ -47,6 +48,7 @@ def ensure_elementtree_imported(verbosity, logfile):
             ET_has_iterparse = True
         except NotImplementedError:
             pass
+    Element_has_iter = hasattr(ET.ElementTree, 'iter')
     if verbosity:
         etree_version = repr([
             (item, getattr(ET, item))
@@ -225,14 +227,15 @@ def make_name_access_maps(bk):
                 if bk.verbosity:
                     print(msg, file=bk.logfile)
         name_and_scope_map[key] = nobj
+        sort_data = (nobj.scope, namex, nobj)
         if name_lcase in name_map:
-            name_map[name_lcase].append((nobj.scope, nobj))
+            name_map[name_lcase].append(sort_data)
         else:
-            name_map[name_lcase] = [(nobj.scope, nobj)]
+            name_map[name_lcase] = [sort_data]
     for key in name_map.keys():
         alist = name_map[key]
         alist.sort()
-        name_map[key] = [x[1] for x in alist]
+        name_map[key] = [x[2] for x in alist]
     bk.name_and_scope_map = name_and_scope_map
     bk.name_map = name_map
 
@@ -243,7 +246,7 @@ class X12General(object):
             fprintf(self.logfile, "\n=== %s ===\n", heading)
         self.tree = ET.parse(stream)
         getmethod = self.tag2meth.get
-        for elem in self.tree.getiterator():
+        for elem in self.tree.iter() if Element_has_iter else self.tree.getiterator():
             if self.verbosity >= 3:
                 self.dump_elem(elem)
             meth = getmethod(elem.tag)
@@ -289,7 +292,7 @@ class X12Book(X12General):
         self.tree = ET.parse(stream)
         getmenu = self.core_props_menu.get
         props = {}
-        for elem in self.tree.getiterator():
+        for elem in self.tree.iter() if Element_has_iter else self.tree.getiterator():
             if self.verbosity >= 3:
                 self.dump_elem(elem)
             menu = getmenu(elem.tag)
@@ -303,6 +306,10 @@ class X12Book(X12General):
             fprintf(self.logfile, "props: %r\n", props)
         self.finish_off()
 
+    @staticmethod
+    def convert_filename(name):
+        return name.replace('\\', '/').lower()
+
     def process_rels(self, stream):
         if self.verbosity >= 2:
             fprintf(self.logfile, "\n=== Relationships ===\n")
@@ -310,7 +317,7 @@ class X12Book(X12General):
         r_tag = U_PKGREL + 'Relationship'
         for elem in tree.findall(r_tag):
             rid = elem.get('Id')
-            target = elem.get('Target')
+            target = X12Book.convert_filename(elem.get('Target'))
             reltype = elem.get('Type').split('/')[-1]
             if self.verbosity >= 2:
                 self.dumpout('Id=%r Type=%r Target=%r', rid, reltype, target)
@@ -755,20 +762,20 @@ def open_workbook_2007_xml(
     bk.ragged_rows = ragged_rows
 
     x12book = X12Book(bk, logfile, verbosity)
-    zflo = zf.open('xl/_rels/workbook.xml.rels')
+    zflo = zf.open(component_names['xl/_rels/workbook.xml.rels'])
     x12book.process_rels(zflo)
     del zflo
-    zflo = zf.open('xl/workbook.xml')
+    zflo = zf.open(component_names['xl/workbook.xml'])
     x12book.process_stream(zflo, 'Workbook')
     del zflo
-    props_name = 'docProps/core.xml'
+    props_name = 'docprops/core.xml'
     if props_name in component_names:
-        zflo = zf.open(props_name)
+        zflo = zf.open(component_names[props_name])
         x12book.process_coreprops(zflo)
 
     x12sty = X12Styles(bk, logfile, verbosity)
     if 'xl/styles.xml' in component_names:
-        zflo = zf.open('xl/styles.xml')
+        zflo = zf.open(component_names['xl/styles.xml'])
         x12sty.process_stream(zflo, 'styles')
         del zflo
     else:
@@ -777,15 +784,14 @@ def open_workbook_2007_xml(
 
     sst_fnames = ('xl/sharedStrings.xml', 'xl/SharedStrings.xml')
     x12sst = X12SST(bk, logfile, verbosity)
-    for sst_fname in sst_fnames:
-        if sst_fname in component_names:
-            zflo = zf.open(sst_fname)
-            x12sst.process_stream(zflo, 'SST')
-            del zflo
+    if sst_fname in component_names:
+        zflo = zf.open(component_names[sst_fname])
+        x12sst.process_stream(zflo, 'SST')
+        del zflo
 
     for sheetx in range(bk.nsheets):
         fname = x12book.sheet_targets[sheetx]
-        zflo = zf.open(fname)
+        zflo = zf.open(component_names[fname])
         sheet = bk._sheet_list[sheetx]
         x12sheet = X12Sheet(sheet, logfile, verbosity)
         heading = "Sheet %r (sheetx=%d) from %r" % (sheet.name, sheetx, fname)
@@ -793,7 +799,7 @@ def open_workbook_2007_xml(
         del zflo
         comments_fname = 'xl/comments%d.xml' % (sheetx + 1)
         if comments_fname in component_names:
-            comments_stream = zf.open(comments_fname)
+            comments_stream = zf.open(component_names[comments_fname])
             x12sheet.process_comments_stream(comments_stream)
             del comments_stream
 
