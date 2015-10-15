@@ -782,13 +782,19 @@ def open_workbook_2007_xml(
         # seen in MS sample file MergedCells.xlsx
         pass
 
-    sst_fnames = ('xl/sharedStrings.xml', 'xl/SharedStrings.xml')
+    sst_fname = 'xl/sharedstrings.xml'
+    for component_name in component_names:
+        if sst_fname == component_name.lower():
+            sst_fname = component_name
+            use_sst = True
+            break
+    else:
+        use_sst = False
     x12sst = X12SST(bk, logfile, verbosity)
-    for sst_fname in sst_fnames:
-        if sst_fname in component_names:
-            zflo = zf.open(component_names[sst_fname])
-            x12sst.process_stream(zflo, 'SST')
-            del zflo
+    if use_sst:
+        zflo = zf.open(component_names[sst_fname])
+        x12sst.process_stream(zflo, 'SST')
+        del zflo
 
     for sheetx in range(bk.nsheets):
         fname = x12book.sheet_targets[sheetx]
