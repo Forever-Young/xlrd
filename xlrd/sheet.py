@@ -675,7 +675,10 @@ class Sheet(BaseObject):
     def put_cell_unragged(self, rowx, colx, ctype, value, xf_index):
         if ctype is None:
             # we have a number, so look up the cell type
-            ctype = self._xf_index_to_xl_type_map[xf_index]
+            try:
+                ctype = self._xf_index_to_xl_type_map[xf_index]
+            except KeyError:
+                ctype = self._xf_index_to_xl_type_map[0]
         # assert 0 <= colx < self.utter_max_cols
         # assert 0 <= rowx < self.utter_max_rows
         try:
@@ -689,8 +692,8 @@ class Sheet(BaseObject):
             # self._put_cell_exceptions += 1
             nr = rowx + 1
             nc = colx + 1
-            assert 1 <= nc <= self.utter_max_cols
-            assert 1 <= nr <= self.utter_max_rows
+            #assert 1 <= nc <= self.utter_max_cols
+            #assert 1 <= nr <= self.utter_max_rows
             if nc > self.ncols:
                 self.ncols = nc
                 # The row self._first_full_rowx and all subsequent rows
@@ -733,8 +736,16 @@ class Sheet(BaseObject):
                 self.nrows = nr
             # === end of code from extend_cells()
             try:
-                self._cell_types[rowx][colx] = ctype
-                self._cell_values[rowx][colx] = value
+                try:
+                    self._cell_types[rowx][colx] = ctype
+                except IndexError:
+                    self._cell_types[rowx].append(0 * (nc - len(self._cell_types[rowx])))
+                    self._cell_types[rowx][colx] = ctype
+                try:
+                    self._cell_values[rowx][colx] = value
+                except IndexError:
+                    self._cell_values[rowx].append([UNICODE_LITERAL('')] * (nc - len(self._cell_types[rowx])))
+                    self._cell_values[rowx][colx] = value
                 if self.formatting_info:
                     self._cell_xf_indexes[rowx][colx] = xf_index
             except:
