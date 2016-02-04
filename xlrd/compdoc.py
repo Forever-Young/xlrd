@@ -413,16 +413,17 @@ class CompDoc(object):
         tot_found = 0
         found_limit = (expected_stream_size + sec_size - 1) // sec_size
         while s >= 0:
-            if self.seen[s]:
-                print("_locate_stream(%s): seen" % qname, file=self.logfile); dump_list(self.seen, 20, self.logfile)
-                raise CompDocError("%s corruption: seen[%d] == %d" % (qname, s, self.seen[s]))
+            # if self.seen[s]:
+            #     print("_locate_stream(%s): seen" % qname, file=self.logfile); dump_list(self.seen, 20, self.logfile)
+            #     raise CompDocError("%s corruption: seen[%d] == %d" % (qname, s, self.seen[s]))
             self.seen[s] = seen_id
             tot_found += 1
             if tot_found > found_limit:
-                raise CompDocError(
-                    "%s: size exceeds expected %d bytes; corrupt?"
-                    % (qname, found_limit * sec_size)
-                    ) # Note: expected size rounded up to higher sector
+                break
+                # raise CompDocError(
+                #     "%s: size exceeds expected %d bytes; corrupt?"
+                #     % (qname, found_limit * sec_size)
+                #     ) # Note: expected size rounded up to higher sector
             if s == p+1:
                 # contiguous sectors
                 end_pos += sec_size
@@ -435,8 +436,8 @@ class CompDoc(object):
                 end_pos = start_pos + sec_size
             p = s
             s = sat[s]
-        assert s == EOCSID
-        assert tot_found == found_limit
+        # assert s == EOCSID
+        # assert tot_found == found_limit
         # print >> self.logfile, "_locate_stream(%s): seen" % qname; dump_list(self.seen, 20, self.logfile)
         if not slices:
             # The stream is contiguous ... just what we like!
